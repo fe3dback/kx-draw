@@ -1,0 +1,25 @@
+{
+    "name": "fe3dback/kx-draw",
+    "description": "PHP/JS handlebars wrapper with reactive update",
+    "type": "lib",
+    "license": "MIT",
+    "authors": [
+        {
+            "name": "fe3dback",
+            "email": "fe3dback@yandex.ru"
+        }
+    ],
+    "autoload": {
+        "psr-4": {
+            "KX\\Template\\": "src/"
+        }
+    },
+    "minimum-stability": "dev",
+    "require": {
+        "zordius/lightncandy": "^1.1",
+        "devster/ubench": "^1.2"
+    },
+    "require-dev": {
+        "filp/whoops": "^2.1"
+    }
+}
