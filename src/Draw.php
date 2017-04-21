@@ -14,6 +14,9 @@ class Draw
     /** @var array - After first disk read, we keep string in cache */
     private $templatesCache = [];
 
+    /** @var array - After compile renders, we keep it in memory (very fast loops) */
+    private $rendersCache = [];
+
     /** @var array - Partial templates (name => raw_str) */
     private $partials = [];
 
@@ -169,52 +172,104 @@ class Draw
      */
     private function getRenderer(string $name)
     {
-        $cached = false;
 
-        $path = $this->engine->getCacheDirectory()
+        $pathToFileCache = $this->engine->getCacheDirectory()
             . DIRECTORY_SEPARATOR . $name
             . '.' . static::_RENDERER_EXT;
 
-        if ($this->engine->isUseCache())
+
+
+        /**
+         * Get renderer from memory T1 Cache
+         *
+         * @return bool|callable
+         */
+        $loadFromMemory = function() use ($name)
         {
-            if (is_file($path))
+            if (in_array($name, array_keys($this->rendersCache)) && is_callable($this->rendersCache[$name])) {
+                return $this->rendersCache[$name];
+            }
+
+            return false;
+        };
+
+        /**
+         * Get renderer from file T2 cache
+         *
+         * @return bool|callable
+         */
+        $loadFromCache = function() use ($name, $pathToFileCache) {
+
+            $cached = false;
+
+            if ($this->engine->isUseCache())
             {
-                /** @noinspection PhpIncludeInspection */
-                $cached = include $path;
-                if (!is_callable($cached))
+                if (is_file($pathToFileCache))
                 {
-                    $cached = false;
+                    /** @noinspection PhpIncludeInspection */
+                    $cached = include $pathToFileCache;
+                    if (!is_callable($cached))
+                    {
+                        $cached = false;
+                    }
                 }
             }
-        }
 
-        if ($cached)
-        {
             return $cached;
+        };
+
+        /**
+         * Compile new renderer and save to file cache (if allowed)
+         * @return callable
+         */
+        $compile = function () use ($name, $pathToFileCache) {
+
+            $compileSettings = [
+                'flags' => LightnCandy::FLAG_HANDLEBARSJS,
+                'partials' => $this->partials
+            ];
+
+            $template = $this->getTemplate($name);
+            $render = LightnCandy::compile($template, $compileSettings);
+
+            // save renderer to file T2 cache
+            if ($this->engine->isUseCache())
+            {
+                file_put_contents($pathToFileCache, '<?php ' . $render . '?>');
+            }
+
+            $renderer = eval($render);
+            return $renderer;
+        };
+
+        // ---------------------------------------------------------
+
+        // fast cache
+
+        $t1 = $loadFromMemory();
+        if ($t1) {
+            return $t1;
         }
 
-        // render
-        $compileSettings = [
-            'flags' => LightnCandy::FLAG_HANDLEBARSJS,
-            'partials' => $this->partials
-        ];
+        // Rebuild cache
 
-        $template = $this->getTemplate($name);
-        $render = LightnCandy::compile($template, $compileSettings);
-
-        // save renderer to cache
-        if ($this->engine->isUseCache())
+        $renderer = $loadFromCache();
+        if (!$renderer)
         {
-            file_put_contents($path, '<?php ' . $render . '?>');
+            $renderer = $compile();
         }
 
-        $renderer = eval($render);
         if (!is_callable($renderer))
         {
             Engine::halt("
                 Invalid template file. Check your syntax at '%s',
                 if you use partials, check that they added to partials list
             ", [$name]);
+        }
+
+        // save to t1 cache
+        if ($this->engine->isUseMemCache()) {
+            $this->rendersCache[$name] = $renderer;
         }
 
         return $renderer;
@@ -252,5 +307,18 @@ class Draw
         // wrap
         $template = $this->wrapTemplate($raw, $templateName, $uniqueId);
         return $template;
+    }
+
+    // ==================================================================================
+
+    /**
+     * Not recommended to use this
+     *
+     * @internal
+     * @return Engine
+     */
+    public function __getEngine(): Engine
+    {
+        return $this->engine;
     }
 }

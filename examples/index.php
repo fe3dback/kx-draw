@@ -51,21 +51,38 @@ $draw = new Draw
         ->setTemplatesDirReal($templatesDir)
         ->setUseCache(true)
         ->setUseMemCache(true)
-        ->setUseBenchmark(true)
+        ->setUseBenchmark(false)
         ->build()
 );
 
 // mark 'shared' dir as partials dir (we make it before)
 $draw->addPartialsDirectory('shared');
 
+var_dump($draw->__getEngine());
+
 // render template and output
-echo $draw->render('hello', 1, [
-    'name' => 'world'
-]);
+$bench = new Ubench();
+$bench->start();
+for ($i=0; $i<=10000; $i++) {
+    $draw->render('hello', 1, [
+        'name' => 'world'
+    ]);
+}
+$bench->end();
+echo "<br>Loop time: " . $bench->getTime();
+echo "<br> Usage: " . $bench->getMemoryUsage();
+echo "<br>Mem Peak: " . $bench->getMemoryPeak();
+
 
 // ===================================================================
 // Example benchmark (optional)
 // ===================================================================
 
-$time = $draw->getDrawTime();
-print_r($time);
+
+//$time = $draw->getDrawTime();
+//$totalTime = array_reduce($time, function($carry, $item) {
+//    return $carry + $item['time'];
+//}, 0.0);
+//
+//echo "Total time: " . $totalTime;
+////print_r($time);
