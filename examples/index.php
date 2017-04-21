@@ -1,88 +1,65 @@
 <?php
 
-require_once '../vendor/autoload.php';
-
 use KX\Template\Builders\EngineFactory;
 use KX\Template\Draw;
 
-// ===================================================================
-// Code for example demonstration (not needed in real use)
-// ===================================================================
+include_once "__common_part.php";
 
-// For debug only --dev
-if (class_exists('\Whoops\Run'))
-{
-    $whoops = new \Whoops\Run;
-    $whoops->pushHandler(new \Whoops\Handler\PrettyPageHandler);
-    $whoops->register();
-}
-
-// Make Example directories and templates (only for example)
-$tmpDir = realpath(__DIR__ . DIRECTORY_SEPARATOR . '../tmp');
-$templatesDir = $tmpDir . DIRECTORY_SEPARATOR . 'templates';
-$partialsDir = $templatesDir . DIRECTORY_SEPARATOR . 'shared';
-$cacheDir = $tmpDir . DIRECTORY_SEPARATOR . 'cache';
-$buildExampleStruct = [$tmpDir, $templatesDir, $cacheDir, $partialsDir];
-
-foreach ($buildExampleStruct as $dir) {
-    if (!is_dir($dir)) {
-        mkdir($dir);
-    }
-}
-
-// Make test template
-$testTemplate = "<b>Hello {{> shared/name}}!</b>";
-file_put_contents($templatesDir . DIRECTORY_SEPARATOR . 'hello.hbs', $testTemplate);
-
-$testPartial = "<i>{{name}}</i>";
-file_put_contents($partialsDir . DIRECTORY_SEPARATOR . 'name.hbs', $testPartial);
-
-
-// ===================================================================
-// REAL USE
-// ===================================================================
+// ======================================
+// CONFIGURE:
+// ======================================
 
 // make draw object
 $draw = new Draw
 (
     (new EngineFactory())
-        ->setExt('hbs')
-        ->setCacheDirReal($cacheDir)
-        ->setTemplatesDirReal($templatesDir)
-        ->setUseCache(true)
-        ->setUseMemCache(true)
-        ->setUseBenchmark(false)
+        ->setExt('hbs')                         // templates file extension (*.hbs)
+        ->setCacheDirReal($cacheDir)            // cache directory (we can safely delete dir, and cache will be rebuild)
+        ->setTemplatesDirReal($templatesDir)    // where our templates stored
+        ->setUseCache(true)                     // recommend to turn ON this feature (compile only first time)
+        ->setUseMemCache(true)                  // recommend to turn ON this feature (helpful for loops)
         ->build()
 );
 
-// mark 'shared' dir as partials dir (we make it before)
+// see engine status (not needed)
+var_dump($draw->__getEngine());
+
+// ======================================
+// REAL USE:
+// ======================================
+
+// mark 'shared' dir as partials dir (we make it before, see __common_part.php)
+// all templates in this dir will be accessible wia partial operator in hbs
+// {{> shared/widgets/input}} - &TEMPLATES_DIR&/shared/widgets/input.hbs
 $draw->addPartialsDirectory('shared');
 
-var_dump($draw->__getEngine());
+// example render (demo template we make automatic in __common_part.php)
+$html = $draw->render('hello', 1, [
+    'name' => 'world'
+]);
+
+// draw rendered template
+echo $html;
+
+// ======================================
+// Benchmark (only for debug):
+// ======================================
 
 // render template and output
 $bench = new Ubench();
 $bench->start();
-for ($i=0; $i<=10000; $i++) {
+
+for ($i=0; $i<=10000; $i++)
+{
+    // render 10000 times simple template
     $draw->render('hello', 1, [
         'name' => 'world'
     ]);
 }
+
 $bench->end();
+
+// display stats
 echo "<br>Loop time: " . $bench->getTime();
 echo "<br> Usage: " . $bench->getMemoryUsage();
 echo "<br>Mem Peak: " . $bench->getMemoryPeak();
-
-
-// ===================================================================
-// Example benchmark (optional)
-// ===================================================================
-
-
-//$time = $draw->getDrawTime();
-//$totalTime = array_reduce($time, function($carry, $item) {
-//    return $carry + $item['time'];
-//}, 0.0);
-//
-//echo "Total time: " . $totalTime;
-////print_r($time);

@@ -167,16 +167,15 @@ class Draw
     /**
      * Get renderer function
      *
-     * @param $name
+     * @param string $name
+     * @param string $uniqueId
      * @return callable
      */
-    private function getRenderer(string $name)
+    private function getRenderer(string $name, string $uniqueId)
     {
-
         $pathToFileCache = $this->engine->getCacheDirectory()
             . DIRECTORY_SEPARATOR . $name
             . '.' . static::_RENDERER_EXT;
-
 
 
         /**
@@ -222,14 +221,16 @@ class Draw
          * Compile new renderer and save to file cache (if allowed)
          * @return callable
          */
-        $compile = function () use ($name, $pathToFileCache) {
+        $compile = function () use ($name, $pathToFileCache, $uniqueId) {
 
             $compileSettings = [
                 'flags' => LightnCandy::FLAG_HANDLEBARSJS,
                 'partials' => $this->partials
             ];
 
-            $template = $this->getTemplate($name);
+            $raw = $this->getTemplate($name);
+            $template = $this->wrapTemplate($raw, $name, $uniqueId);
+
             $render = LightnCandy::compile($template, $compileSettings);
 
             // save renderer to file T2 cache
@@ -276,8 +277,10 @@ class Draw
     }
 
     /**
-     * Wrap prepared template with tag and id
-     * This we can use in js later
+     * Add template and id to first root element
+     * if raw string
+     *
+     * todo: WRAP FUNCTION SHOULD REALTIME WRAP WITH ID
      *
      * @param $template
      * @param $name
@@ -286,7 +289,35 @@ class Draw
      */
     private function wrapTemplate(string $template, string $name, string $id)
     {
-        return "<div data-kxdraw-name='{$name}' data-kxdraw-id='{$id}'>{$template}</div>";
+        $html = new \DOMDocument();
+        $html->encoding = 'utf-8';
+        $html->loadHTML('<kxparent>'.$template.'</kxparent>');
+
+        $el = $html->getElementsByTagName('kxparent')->item(0);
+        if (!$el->hasChildNodes()) {
+            Engine::halt("Is your template '%s' empty? Add some html tag to it.", [$name]);
+        }
+
+        $nodes = [];
+        foreach ($el->childNodes as $node) {
+            $nodes[] = $node;
+        }
+
+        if (count($nodes) >= 2)
+        {
+            Engine::halt("Template '%s' should contain only one parent (like in react). 
+            Wrap your elements by some html tag (div, span, etc..)", [$name]);
+        }
+
+        /** @var $firstNode \DOMElement */
+        $firstNode = reset($nodes);
+
+        $firstNode->setAttribute('data-kxdraw-name', $name);
+        $firstNode->setAttribute('data-kxdraw-id', $id);
+
+        $encodedHtmlString = (string)$firstNode->ownerDocument->saveHTML($firstNode);
+
+        return htmlspecialchars_decode($encodedHtmlString);
     }
 
     /**
@@ -301,12 +332,9 @@ class Draw
     {
         $this->engine->getStorage()->save($templateName, $uniqueId, $data);
 
-        $renderer = $this->getRenderer($templateName);
+        $renderer = $this->getRenderer($templateName, $uniqueId);
         $raw = $renderer($data);
-
-        // wrap
-        $template = $this->wrapTemplate($raw, $templateName, $uniqueId);
-        return $template;
+        return $raw;
     }
 
     // ==================================================================================

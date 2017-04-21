@@ -48,10 +48,7 @@ class Storage
      */
     public function addToDrawTime($templateName, $time)
     {
-        $this->drawTime[] = [
-            'template' => $templateName,
-            'time' => $time
-        ];
+        $this->drawTime[$templateName] += $time;
     }
 
     /**
