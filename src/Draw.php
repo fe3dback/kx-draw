@@ -8,6 +8,9 @@ class Draw
 {
     const _RENDERER_EXT = 'renderer';
 
+    const __HTML_ATTR_KX_TEMPLATE_ID = '_kx_draw_template_name';
+    const __HTML_ATTR_KX_UNIQUE_ID = '_kx_draw_unique_id';
+
     /** @var Engine */
     private $engine;
 
@@ -20,9 +23,14 @@ class Draw
     /** @var array - Partial templates (name => raw_str) */
     private $partials = [];
 
+    /** @var RecursiveIteratorIterator */
+    private $templatesIterator = null;
+
     function __construct(Engine $engine)
     {
         $this->engine = $engine;
+
+        $this->loadTemplates();
     }
 
     /**
@@ -43,7 +51,7 @@ class Draw
      */
     public function render(string $templateName, string $uniqueId, array $data = [])
     {
-        if (!$uniqueId)
+        if (is_null($uniqueId))
         {
             Engine::halt("You should provide some unique id for template '%s'", [$templateName]);
         }
@@ -138,17 +146,15 @@ class Draw
         }
     }
 
-    // ==================================================================================
-
     /**
      * Return string template by name
      *
      * @param $name
      * @return string
      */
-    private function getTemplate(string $name)
+    public function getTemplate(string $name)
     {
-        if (!in_array($name, $this->templatesCache))
+        if (!in_array($name, array_keys($this->templatesCache)))
         {
             $realPath = $this->engine->getTemplatesDirectory()
                 . DIRECTORY_SEPARATOR . $name
@@ -163,6 +169,102 @@ class Draw
 
         return $this->templatesCache[$name];
     }
+
+    // ==================================================================================
+
+    /**
+     * Load all templates to mem cache
+     * only first time when draw created.
+     *
+     * Also we check modified date, and clear
+     * all old templates cache
+     */
+    private function loadTemplates()
+    {
+        $templatesPath = $this->engine->getTemplatesDirectory() . DIRECTORY_SEPARATOR;
+
+        if (is_null($this->templatesIterator)) {
+            $this->templatesIterator = new RecursiveIteratorIterator
+            (
+                new RecursiveDirectoryIterator($templatesPath, RecursiveDirectoryIterator::SKIP_DOTS),
+                RecursiveIteratorIterator::SELF_FIRST,
+                RecursiveIteratorIterator::CATCH_GET_CHILD // Ignore "Permission denied"
+            );
+        }
+
+        $this->__Load_disValidateOldCache();
+    }
+
+    private function __Load_disValidateOldCache()
+    {
+        // load map
+        $mapFile = [];
+        $mapPath = $this->engine->getCacheDirectory() . DIRECTORY_SEPARATOR
+            . $this->engine->getMapFileName();
+
+        if (is_file($mapPath)) {
+            $mapFile = unserialize(file_get_contents($mapPath));
+        }
+
+        // update map && clear old renderer cache
+        $templatesExt = $this->engine->getExt();
+        $templatesDir = $this->engine->getTemplatesDirectory();
+
+        foreach ($this->templatesIterator as $path => $h)
+        {
+            /** @var $h \SplFileInfo */
+            if ($h->isFile())
+            {
+                $name = str_replace($templatesDir, '', $path);
+                $name = str_replace('.' . $templatesExt, '', $name);
+                $name = trim($name, '/');
+
+                $modified_cache = 0;
+                $modified_real = $h->getMTime();
+
+                if (in_array($name, array_keys($mapFile))) {
+                    $modified_cache = $mapFile[$name];
+                }
+
+                if ($this->engine->isUseCache())
+                {
+                    $pathToRendererCache = $this->engine->getCacheDirectory()
+                        . DIRECTORY_SEPARATOR . $name
+                        . '.' . static::_RENDERER_EXT;
+
+                    if ($modified_real != $modified_cache)
+                    {
+                        // remove old cache
+                        unlink($pathToRendererCache);
+                    }
+                    else
+                    {
+                        // load template to mem cache
+                        $this->templatesCache[$name] = file_get_contents($path);
+
+                        // load renderer to mem cache
+                        if ($this->engine->isUseMemCache())
+                        {
+                            /** @noinspection PhpIncludeInspection */
+                            $renderer = include $pathToRendererCache;
+
+                            if ($renderer && is_callable($renderer))
+                            {
+                                $this->rendersCache[$name] = $renderer;
+                            }
+                        }
+                    }
+                }
+
+                $mapFile[$name] = $modified_real;
+            }
+        }
+
+        // save map
+        file_put_contents($mapPath, serialize($mapFile));
+    }
+
+    // ==================================================================================
 
     /**
      * Get renderer function
@@ -229,7 +331,7 @@ class Draw
             ];
 
             $raw = $this->getTemplate($name);
-            $template = $this->wrapTemplate($raw, $name, $uniqueId);
+            $template = $this->wrapTemplate($raw, $name);
 
             $render = LightnCandy::compile($template, $compileSettings);
 
@@ -280,18 +382,15 @@ class Draw
      * Add template and id to first root element
      * if raw string
      *
-     * todo: WRAP FUNCTION SHOULD REALTIME WRAP WITH ID
-     *
-     * @param $template
-     * @param $name
-     * @param $id
+     * @param string $raw
+     * @param string $name
      * @return string
      */
-    private function wrapTemplate(string $template, string $name, string $id)
+    private function wrapTemplate(string $raw, string $name)
     {
         $html = new \DOMDocument();
         $html->encoding = 'utf-8';
-        $html->loadHTML('<kxparent>'.$template.'</kxparent>');
+        $html->loadHTML('<kxparent>'.$raw.'</kxparent>');
 
         $el = $html->getElementsByTagName('kxparent')->item(0);
         if (!$el->hasChildNodes()) {
@@ -312,8 +411,8 @@ class Draw
         /** @var $firstNode \DOMElement */
         $firstNode = reset($nodes);
 
-        $firstNode->setAttribute('data-kxdraw-name', $name);
-        $firstNode->setAttribute('data-kxdraw-id', $id);
+        $firstNode->setAttribute('data-kx-draw-name', vsprintf("{{%s}}", [self::__HTML_ATTR_KX_TEMPLATE_ID]));
+        $firstNode->setAttribute('data-kx-draw-id', vsprintf("{{%s}}", [self::__HTML_ATTR_KX_UNIQUE_ID]));
 
         $encodedHtmlString = (string)$firstNode->ownerDocument->saveHTML($firstNode);
 
@@ -330,10 +429,17 @@ class Draw
      */
     private function realRender(string $templateName, string $uniqueId, array $data = [])
     {
+        // append system vars to template
+        $data[self::__HTML_ATTR_KX_TEMPLATE_ID] = $templateName;
+        $data[self::__HTML_ATTR_KX_UNIQUE_ID] = $uniqueId;
+
+        // save to storage
         $this->engine->getStorage()->save($templateName, $uniqueId, $data);
 
+        // render
         $renderer = $this->getRenderer($templateName, $uniqueId);
         $raw = $renderer($data);
+
         return $raw;
     }
 

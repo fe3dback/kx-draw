@@ -15,10 +15,10 @@ if (class_exists('\Whoops\Run'))
 
 // Make Example directories and templates (only for example)
 $tmpDir = realpath(__DIR__ . DIRECTORY_SEPARATOR . '../tmp');
-$templatesDir = $tmpDir . DIRECTORY_SEPARATOR . 'templates';
+$templatesDir = realpath(__DIR__ . DIRECTORY_SEPARATOR . 'templates');
 $partialsDir = $templatesDir . DIRECTORY_SEPARATOR . 'shared';
 $cacheDir = $tmpDir . DIRECTORY_SEPARATOR . 'cache';
-$buildExampleStruct = [$tmpDir, $templatesDir, $cacheDir, $partialsDir];
+$buildExampleStruct = [$tmpDir, $cacheDir, $partialsDir];
 
 foreach ($buildExampleStruct as $dir)
 {
@@ -27,13 +27,6 @@ foreach ($buildExampleStruct as $dir)
         mkdir($dir);
     }
 }
-
-// Make test template
-$testTemplate = "<b>Hello {{> shared/name}}!</b>";
-file_put_contents($templatesDir . DIRECTORY_SEPARATOR . 'hello.hbs', $testTemplate);
-
-$testPartial = "<i>{{name}}</i>";
-file_put_contents($partialsDir . DIRECTORY_SEPARATOR . 'name.hbs', $testPartial);
 
 // ===================================================================
 // Set up logger

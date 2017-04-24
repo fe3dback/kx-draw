@@ -128,4 +128,12 @@ class Engine
     {
         return $this->storage;
     }
+
+    /**
+     * @return mixed
+     */
+    public function getMapFileName()
+    {
+        return $this->map_file_name;
+    }
 }
