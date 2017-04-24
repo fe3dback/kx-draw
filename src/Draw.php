@@ -197,6 +197,8 @@ class Draw
 
     private function __Load_disValidateOldCache()
     {
+        
+        
         // load map
         $mapFile = [];
         $mapPath = $this->engine->getCacheDirectory() . DIRECTORY_SEPARATOR
@@ -235,7 +237,9 @@ class Draw
                     if ($modified_real != $modified_cache)
                     {
                         // remove old cache
-                        unlink($pathToRendererCache);
+                        if (is_file($pathToRendererCache)) {
+                            unlink($pathToRendererCache);
+                        }
                     }
                     else
                     {
@@ -245,12 +249,15 @@ class Draw
                         // load renderer to mem cache
                         if ($this->engine->isUseMemCache())
                         {
-                            /** @noinspection PhpIncludeInspection */
-                            $renderer = include $pathToRendererCache;
-
-                            if ($renderer && is_callable($renderer))
+                            if (is_file($pathToRendererCache)) 
                             {
-                                $this->rendersCache[$name] = $renderer;
+                                /** @noinspection PhpIncludeInspection */
+                                $renderer = include $pathToRendererCache;
+                                
+                                if ($renderer && is_callable($renderer))
+                                {
+                                    $this->rendersCache[$name] = $renderer;
+                                }
                             }
                         }
                     }
@@ -390,7 +397,7 @@ class Draw
     {
         $html = new \DOMDocument();
         $html->encoding = 'utf-8';
-        $html->loadHTML('<kxparent>'.$raw.'</kxparent>');
+        @$html->loadHTML('<kxparent>'.$raw.'</kxparent>');
 
         $el = $html->getElementsByTagName('kxparent')->item(0);
         if (!$el->hasChildNodes()) {

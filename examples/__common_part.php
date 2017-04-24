@@ -1,4 +1,4 @@
-<?
+<?php
 require_once '../vendor/autoload.php';
 
 // ===================================================================
@@ -14,8 +14,8 @@ if (class_exists('\Whoops\Run'))
 }
 
 // Make Example directories and templates (only for example)
-$tmpDir = realpath(__DIR__ . DIRECTORY_SEPARATOR . '../tmp');
-$templatesDir = realpath(__DIR__ . DIRECTORY_SEPARATOR . 'templates');
+$tmpDir = __DIR__ . DIRECTORY_SEPARATOR . '../tmp';
+$templatesDir = __DIR__ . DIRECTORY_SEPARATOR . 'templates';
 $partialsDir = $templatesDir . DIRECTORY_SEPARATOR . 'shared';
 $cacheDir = $tmpDir . DIRECTORY_SEPARATOR . 'cache';
 $buildExampleStruct = [$tmpDir, $cacheDir, $partialsDir];
