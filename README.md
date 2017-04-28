@@ -1,3 +1,6 @@
+[![Build Status](https://travis-ci.org/fe3dback/kx-draw.svg?branch=master)](https://travis-ci.org/fe3dback/kx-draw)
+[![Coverage Status](https://coveralls.io/repos/github/fe3dback/kx-draw/badge.svg?branch=master)](https://coveralls.io/github/fe3dback/kx-draw?branch=master)
+
 # About
 
 This is reactive two side template library for handlebars.
