@@ -7,8 +7,8 @@ install:
   - composer install --no-interaction --dev
 
 script:
-  - chmod +x test.sh
-  - test.sh
+  - chmod +x ./test.sh
+  - ./test.sh
 
 after_success:
   - travis_retry php vendor/bin/coveralls
