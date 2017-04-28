@@ -1,0 +1,14 @@
+language: php
+php:
+  - 7
+  - 7.1
+
+install:
+  - composer install --no-interaction --dev
+
+script:
+  - chmod +x test.sh
+  - test.sh
+
+after_success:
+  - travis_retry php vendor/bin/coveralls

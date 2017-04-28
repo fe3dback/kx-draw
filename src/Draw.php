@@ -1,5 +1,6 @@
 <?php namespace KX\Template;
 
+use DOMDocument;
 use LightnCandy\LightnCandy;
 use RecursiveDirectoryIterator;
 use RecursiveIteratorIterator;
@@ -58,15 +59,14 @@ class Draw
 
         if ($this->engine->isUseBenchmark())
         {
-            $bench = new \Ubench();
+            $timeStart = microtime(true);
 
             // actual run
-            $result = $bench->run(function() use ($templateName, $uniqueId, $data)
-            {
-                return $this->realRender($templateName, $uniqueId, $data);
-            });
+            $result = $this->realRender($templateName, $uniqueId, $data);
 
-            $time = $bench->getTime(true);
+            $timeEnd = microtime(true);
+            $time = $timeEnd - $timeStart;
+
             $this->engine->getStorage()->addToDrawTime($templateName, $time);
         }
         else
@@ -170,6 +170,37 @@ class Draw
         return $this->templatesCache[$name];
     }
 
+    /**
+     * Export all necessary data
+     * to JS side
+     *
+     * This return raw html string
+     * for inject into site footer (before body tag close)
+     *
+     * @return string - html string
+     */
+    public function exportToJS()
+    {
+        $templateIds = $this->engine->getStorage()->getUsedTemplates();
+        $templates = [];
+        foreach ($templateIds as $templateId)
+        {
+            $templates[$templateId] = $this->getTemplate($templateId);
+        }
+
+        $JS_data = json_encode($this->engine->getStorage()->getTemplateData());
+        $JS_templates = json_encode($templates);
+
+        $_js = <<<HTML
+<script type="text/javascript">
+window.__kxrender_data = {$JS_data};
+window.__kxrender_templates = {$JS_templates};
+</script>
+HTML;
+
+        return $_js;
+    }
+
     // ==================================================================================
 
     /**
@@ -197,15 +228,13 @@ class Draw
 
     private function __Load_disValidateOldCache()
     {
-        
-        
         // load map
-        $mapFile = [];
+        $mapFile = new \stdClass();
         $mapPath = $this->engine->getCacheDirectory() . DIRECTORY_SEPARATOR
             . $this->engine->getMapFileName();
 
         if (is_file($mapPath)) {
-            $mapFile = unserialize(file_get_contents($mapPath));
+            $mapFile = json_decode(file_get_contents($mapPath));
         }
 
         // update map && clear old renderer cache
@@ -224,8 +253,8 @@ class Draw
                 $modified_cache = 0;
                 $modified_real = $h->getMTime();
 
-                if (in_array($name, array_keys($mapFile))) {
-                    $modified_cache = $mapFile[$name];
+                if (in_array($name, array_keys((array)$mapFile))) {
+                    $modified_cache = $mapFile->$name;
                 }
 
                 if ($this->engine->isUseCache())
@@ -263,12 +292,12 @@ class Draw
                     }
                 }
 
-                $mapFile[$name] = $modified_real;
+                $mapFile->$name = $modified_real;
             }
         }
 
         // save map
-        file_put_contents($mapPath, serialize($mapFile));
+        file_put_contents($mapPath, json_encode($mapFile));
     }
 
     // ==================================================================================
@@ -395,7 +424,7 @@ class Draw
      */
     private function wrapTemplate(string $raw, string $name)
     {
-        $html = new \DOMDocument();
+        $html = new DOMDocument();
         $html->encoding = 'utf-8';
         @$html->loadHTML('<kxparent>'.$raw.'</kxparent>');
 

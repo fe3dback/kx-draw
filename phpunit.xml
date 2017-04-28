@@ -1,0 +1,29 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<phpunit
+    backupGlobals="false"
+    colors="true"
+    convertNoticesToExceptions="false"
+    bootstrap="./vendor/autoload.php"
+>
+    <filter>
+        <blacklist>
+            <directory>./vendor</directory>
+            <directory>./tests</directory>
+        </blacklist>
+        <whitelist>
+            <directory suffix=".php">./src</directory>
+        </whitelist>
+    </filter>
+
+    <logging>
+        <log type="coverage-html" target="build/cov/html/" title="KXDraw" charset="UTF-8" />
+        <log type="coverage-php" target="build/cov/coverage.cov"/>
+        <log type="coverage-text" target="php://stdout" />
+    </logging>
+
+    <testsuites>
+        <testsuite name="KXDraw Test Suite">
+            <directory>./tests</directory>
+        </testsuite>
+    </testsuites>
+</phpunit>

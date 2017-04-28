@@ -9,28 +9,49 @@ include_once "__common_part.php";
 // CONFIGURE:
 // ======================================
 
-// make draw object
-$draw = new Draw
-(
-    (new EngineFactory())
-        ->setExt('hbs')                         // templates file extension (*.hbs)
-        ->setCacheDirReal($cacheDir)            // cache directory (we can safely delete dir, and cache will be rebuild)
-        ->setTemplatesDirReal($templatesDir)    // where our templates stored
-        ->setUseCache(true)                     // recommend to turn ON this feature (compile only first time)
-        ->setUseMemCache(true)                  // recommend to turn ON this feature (helpful for loops)
-        ->build()
-);
+/**
+ * Get draw object
+ * global scope wrapper
+ * this is optional, only for global project use
+ *
+ * @return Draw
+ */
+function KXDraw(): Draw
+{
+    // cache, templates dir we make early in __common_part.php
+    global $__kxDrawEntity, $cacheDir, $templatesDir;
+
+    if (is_null($__kxDrawEntity))
+    {
+        // make draw object, we can use only this class directly
+        $__kxDrawEntity = new Draw
+        (
+            (new EngineFactory())
+                ->setExt('hbs')                         // templates file extension (*.hbs)
+                ->setCacheDirReal($cacheDir)            // cache directory (we can safely delete dir, and cache will be rebuild)
+                ->setTemplatesDirReal($templatesDir)    // where our templates stored
+                ->setUseCache(true)                     // recommend to turn ON this feature (compile only first time)
+                ->setUseMemCache(true)                  // recommend to turn ON this feature (helpful for loops)
+                ->setUseBenchmark(true)                 // not needed in real use
+                ->build()
+        );
+    }
+
+    return $__kxDrawEntity;
+}
+
+
 
 // mark 'shared' dir as partials dir
 // all templates in this dir will be accessible wia partial operator in hbs
 // {{> shared/widgets/input}} - &TEMPLATES_DIR&/shared/widgets/input.hbs
-$draw->addPartialsDirectory('shared');
+KXDraw()->addPartialsDirectory('shared');
 
 // ======================================
 // REAL USE:
 // ======================================
 
-$html = $draw->render('hello', 1, [
+$html = KXDraw()->render('hello', 1, [
     'name' => 'world'
 ]);
 
@@ -40,19 +61,22 @@ $html = $draw->render('hello', 1, [
 
 const BENCHMARK_COUNT = 1000;
 
-// render template and output
-$bench = new Ubench();
-$bench->start();
-
-for ($i=0; $i<=BENCHMARK_COUNT; $i++)
+if (class_exists('Ubench'))
 {
-    // render 10000 times simple template
-    $draw->render('hello', $i, [
-        'name' => 'world'
-    ]);
-}
+    // render template and output
+    $bench = new Ubench();
+    $bench->start();
 
-$bench->end();
+    for ($i=0; $i<=BENCHMARK_COUNT; $i++)
+    {
+        // render 10000 times simple template
+        KXDraw()->render('hello', 1000+$i, [
+            'name' => 'world - '.$i
+        ]);
+    }
+
+    $bench->end();
+}
 
 // display stats
 
@@ -64,19 +88,21 @@ $bench->end();
 // now prepare all data to example output
 // (only for debug)
 $index = 1;
-$source = $draw->getTemplate('hello'); // get raw template
-$source_shared = $draw->getTemplate('shared/name');
+$source = KXDraw()->getTemplate('hello'); // get raw template
+$source_shared = KXDraw()->getTemplate('shared/name');
 $data = ['name' => 'world'];
-$result = $draw->render('hello', $index, $data);
+$result = KXDraw()->render('hello', $index, $data);
 
 // draw rendered template
-$exampleHtml = $draw->render('example_1', true, [
+$exampleHtml = KXDraw()->render('example_1', true, [
     'index' => $index,
     'source' => $source,
     'source_shared' => $source_shared,
     'data' => json_encode($data, JSON_PRETTY_PRINT),
     'result' => $result
 ]);
+
+fire(KXDraw()->getDrawTime());
 ?>
 
 <head>
@@ -114,12 +140,17 @@ $exampleHtml = $draw->render('example_1', true, [
 <body>
     <?=$exampleHtml?>
 
-    <!-- benchmark -->
-    <br>Loop render times: <?=BENCHMARK_COUNT?>
-    <br>Loop time: <?=$bench->getTime();?>
-    <br>Usage: <?=$bench->getMemoryUsage();?>
-    <br>Mem Peak: <?=$bench->getMemoryPeak();?>
+    <?if (class_exists('Ubench')):?>
+        <!-- benchmark -->
+        <br>Loop render times: <?=BENCHMARK_COUNT?>
+        <br>Loop time: <?=$bench->getTime();?>
+        <br>Usage: <?=$bench->getMemoryUsage();?>
+        <br>Mem Peak: <?=$bench->getMemoryPeak();?>
+    <?endif;?>
 
     <!-- engine dump -->
-    <?var_dump($draw->__getEngine());?>
+    <?var_dump(KXDraw()->__getEngine());?>
+
+    <!-- Send all data to JS Side (optional, for js render only) -->
+    <?=KXDraw()->exportToJS()?>
 </body>

@@ -1,7 +1,9 @@
 {
     "name": "fe3dback/kx-draw",
     "description": "PHP/JS handlebars wrapper with reactive update",
-    "type": "lib",
+    "type": "library",
+    "homepage": "https://github.com/fe3dback/kx-draw",
+    "keywords": ["handlebars", "template", "two-side", "render", "php7", "JS"],
     "license": "MIT",
     "authors": [
         {
@@ -16,11 +18,14 @@
     },
     "minimum-stability": "dev",
     "require": {
-        "zordius/lightncandy": "^1.1",
-        "devster/ubench": "^1.2"
+        "zordius/lightncandy": "^1.1"
     },
     "require-dev": {
         "filp/whoops": "^2.1",
-        "monolog/monolog": "^1.22"
+        "monolog/monolog": "^1.22",
+        "devster/ubench": "^1.2",
+        "phpunit/phpunit": "^6.1",
+        "satooshi/php-coveralls": "^2.0@dev",
+        "phpunit/phpcov": "^4.0@dev"
     }
 }

@@ -48,6 +48,12 @@ class Storage
      */
     public function addToDrawTime($templateName, $time)
     {
+        $time = sprintf('%f', (float)$time);
+
+        if (!isset($this->drawTime[$templateName])) {
+            $this->drawTime[$templateName] = 0;
+        }
+
         $this->drawTime[$templateName] += $time;
     }
 
