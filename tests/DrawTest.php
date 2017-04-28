@@ -86,6 +86,38 @@ class DrawTest extends TestCase
         $testDraw($this->buildDraw(true, true, true));
     }
 
+    public function testTemplates()
+    {
+
+        $__id = 100;
+        $__varKey = 'name';
+        $__varValue = 'unit';
+        $__template = 'hello';
+
+        // ---
+
+        $draw = $this->buildDraw(false, false, false);
+        $draw->render($__template, $__id, [$__varKey => $__varValue]);
+
+        $storage = $draw->__getEngine()->getStorage();
+
+        $templates = $storage->getUsedTemplates();
+        $tempData = $storage->getTemplateData();
+
+        $this->assertEquals(in_array($__template, $templates), true);
+        $this->assertCount(1, $templates);
+
+        $this->assertArrayHasKey($__template, $tempData);
+        $this->assertCount(1, $tempData);
+
+        $name = $tempData[$__template][$__id][$__varKey];
+        $this->assertEquals($name, $__varValue);
+
+        $this->assertEquals($tempData[$__template][$__id]['_kx_draw_template_name'], $__template);
+        $this->assertEquals($tempData[$__template][$__id]['_kx_draw_unique_id'], $__id);
+
+    }
+
     public function testBenchmark()
     {
         $benchDraw = $this->buildDraw(true, true, true);
