@@ -190,11 +190,23 @@ class Draw
 
         $JS_data = json_encode($this->engine->getStorage()->getTemplateData());
         $JS_templates = json_encode($templates);
+        $JS_partials = json_encode($this->partials);
 
         $_js = <<<HTML
 <script type="text/javascript">
-window.__kxrender_data = {$JS_data};
-window.__kxrender_templates = {$JS_templates};
+if ((typeof KXDrawRender == "function")) {
+    window.KXDraw = new KXDrawRender({
+        templates: {$JS_templates},
+        data: {$JS_data},
+        partials: {$JS_partials}
+    });
+} else {
+    console.info(
+        "%cCant use KXDraw (reactive render) in JS side (lib not found). Forgot include? Lib should be in /vendor/fe3dback/kx-draw/draw.js",
+        "color:yellow;background-color:crimson;padding:5px;line-height:160%"
+    );
+}
+
 </script>
 HTML;
 

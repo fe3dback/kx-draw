@@ -32,7 +32,7 @@ function KXDraw(): Draw
                 ->setTemplatesDirReal($templatesDir)    // where our templates stored
                 ->setUseCache(true)                     // recommend to turn ON this feature (compile only first time)
                 ->setUseMemCache(true)                  // recommend to turn ON this feature (helpful for loops)
-                ->setUseBenchmark(true)                 // not needed in real use
+                ->setUseBenchmark(false)                 // not needed in real use
                 ->build()
         );
     }
@@ -151,6 +151,18 @@ fire(KXDraw()->getDrawTime());
     <!-- engine dump -->
     <?var_dump(KXDraw()->__getEngine());?>
 
+
     <!-- Send all data to JS Side (optional, for js render only) -->
+    <script src="https://ajax.googleapis.com/ajax/libs/jquery/3.2.1/jquery.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/handlebars.js/4.0.7/handlebars.min.js"></script>
+    <script type="text/javascript" src="./../draw.js"></script>
     <?=KXDraw()->exportToJS()?>
+
+    <!-- Example render action, triggered when button pressed -->
+    <script type="text/javascript">
+        function render_again(index) {
+            var jsonData = JSON.parse($("#JSExampleDataJSON").val());
+            KXDraw.update('hello', index, jsonData, false);
+        }
+    </script>
 </body>
