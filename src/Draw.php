@@ -52,7 +52,7 @@ class Draw
      */
     public function render(string $templateName, string $uniqueId, array $data = [])
     {
-        if (is_null($uniqueId))
+        if (strlen(trim($uniqueId)) <= 0)
         {
             Engine::halt("You should provide some unique id for template '%s'", [$templateName]);
         }
@@ -438,7 +438,7 @@ HTML;
             $nodes[] = $node;
         }
 
-        if (count($nodes) >= 2)
+        if (count($nodes) != 1)
         {
             Engine::halt("Template '%s' should contain only one parent (like in react). 
             Wrap your elements by some html tag (div, span, etc..)", [$name]);
@@ -446,6 +446,11 @@ HTML;
 
         /** @var $firstNode \DOMElement */
         $firstNode = reset($nodes);
+        if (!($firstNode instanceof \DOMElement))
+        {
+            Engine::halt("Template '%s' is invalid. Check your syntax. 
+            Maybe you template without parent wrapper?", [$name]);
+        }
 
         $firstNode->setAttribute('data-kx-draw-name', vsprintf("{{%s}}", [self::__HTML_ATTR_KX_TEMPLATE_ID]));
         $firstNode->setAttribute('data-kx-draw-id', vsprintf("{{%s}}", [self::__HTML_ATTR_KX_UNIQUE_ID]));
