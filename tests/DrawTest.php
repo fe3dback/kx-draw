@@ -215,8 +215,8 @@ class DrawTest extends TestCase
             "test_js_data",
             "HEsl_9241QQE",
             "text/javascript",
-            "window.__kxrender_data",
-            "window.__kxrender_templates",
+            "new KXDrawRender",
+            "templates:",
             "hello",
         ];
 
