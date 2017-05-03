@@ -5,7 +5,7 @@
     "homepage": "https://github.com/fe3dback/kx-draw",
     "keywords": ["handlebars", "template", "two-side", "render", "php7", "JS"],
     "license": "MIT",
-    "version": "0.9@dev",
+    "version": "1.0",
     "authors": [
         {
             "name": "fe3dback",
