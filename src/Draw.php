@@ -25,9 +25,9 @@ class Draw
     private $partials = [];
 
     /** @var RecursiveIteratorIterator */
-    private $templatesIterator = null;
+    private $templatesIterator;
 
-    function __construct(Engine $engine)
+    public function __construct(Engine $engine)
     {
         $this->engine = $engine;
 
@@ -46,15 +46,16 @@ class Draw
      * Good idea to use EntityId as uniqueId
      *
      * @param $templateName
-     * @param $uniqueId
+     * @param $uniqueId - if (=== false), this template will be static, and not exported to js
      * @param $data
      * @return string
+     * @throws \Exception
      */
-    public function render(string $templateName, string $uniqueId, array $data = [])
+    public function render(string $templateName, $uniqueId, array $data = []): string
     {
-        if (strlen(trim($uniqueId)) <= 0)
+        if ($uniqueId !== false && strlen(trim($uniqueId)) <= 0)
         {
-            Engine::halt("You should provide some unique id for template '%s'", [$templateName]);
+            Engine::halt('You should provide some unique id for template \'%s\'', [$templateName]);
         }
 
         if ($this->engine->isUseBenchmark())
@@ -96,11 +97,12 @@ class Draw
     /**
      * Add some template to partials
      * @param $name
+     * @throws \Exception
      */
     public function addPartial($name)
     {
         if (!$name) {
-            Engine::halt("You should provide valid partial name.");
+            Engine::halt('You should provide valid partial name.');
         }
 
         $template = $this->getTemplate($name);
@@ -112,11 +114,12 @@ class Draw
      * and all sub directories to partial
      *
      * @param $relativeDirectory - directory relative to templates dir. (without slashes)
+     * @throws \Exception
      */
     public function addPartialsDirectory($relativeDirectory)
     {
         if (!$relativeDirectory) {
-            Engine::halt("You should provide valid partial folder name.");
+            Engine::halt('You should provide valid partial folder name.');
         }
 
         $templatesPath = $this->engine->getTemplatesDirectory() . DIRECTORY_SEPARATOR;
@@ -124,7 +127,7 @@ class Draw
         $fullPath = $templatesPath . $relativeDirectory;
 
         if (!is_dir($fullPath)) {
-            Engine::halt("Can't add directory '%s' to partial. Directory not exist!", [$fullPath]);
+            Engine::halt('Can\'t add directory \'%s\' to partial. Directory not exist!', [$fullPath]);
         }
 
         $iterator = new RecursiveIteratorIterator
@@ -138,9 +141,7 @@ class Draw
         {
             if ($dir->isFile())
             {
-                $name = str_replace($templatesPath, '', $path);
-                $name = str_replace('.' . $templatesExt, '', $name);
-
+                $name = str_replace([$templatesPath, '.' . $templatesExt], '', $path);
                 $this->addPartial($name);
             }
         }
@@ -151,17 +152,18 @@ class Draw
      *
      * @param $name
      * @return string
+     * @throws \Exception
      */
-    public function getTemplate(string $name)
+    public function getTemplate(string $name): string
     {
-        if (!in_array($name, array_keys($this->templatesCache)))
+        if (!array_key_exists($name, $this->templatesCache))
         {
             $realPath = $this->engine->getTemplatesDirectory()
                 . DIRECTORY_SEPARATOR . $name
                 . '.' . $this->engine->getExt();
 
             if (!is_file($realPath)) {
-                Engine::halt("Template '%s' not found!", [$realPath]);
+                Engine::halt('Template \'%s\' not found!', [$realPath]);
             }
 
             $this->templatesCache[$name] = file_get_contents($realPath);
@@ -178,8 +180,9 @@ class Draw
      * for inject into site footer (before body tag close)
      *
      * @return string - html string
+     * @throws \Exception
      */
-    public function exportToJS()
+    public function exportToJS(): string
     {
         $templateIds = $this->engine->getStorage()->getUsedTemplates();
         $templates = [];
@@ -188,25 +191,22 @@ class Draw
             $templates[$templateId] = $this->getTemplate($templateId);
         }
 
-        $JS_data = json_encode($this->engine->getStorage()->getTemplateData());
-        $JS_templates = json_encode($templates);
-        $JS_partials = json_encode($this->partials);
+        $JS_DATA = json_encode([
+            'templates' =>  $templates,
+            'data' => $this->engine->getStorage()->getTemplateData(),
+            'partials' => $this->partials
+        ]);
 
         $_js = <<<HTML
 <script type="text/javascript">
-if ((typeof KXDrawRender == "function")) {
-    window.KXDraw = new KXDrawRender({
-        templates: {$JS_templates},
-        data: {$JS_data},
-        partials: {$JS_partials}
-    });
+if ((typeof KXDrawRender === "function")) {
+    window.KXDraw = new KXDrawRender({$JS_DATA});
 } else {
     console.info(
         "%cCant use KXDraw (reactive render) in JS side (lib not found). Forgot include? Lib should be in /vendor/fe3dback/kx-draw/draw.js",
         "color:yellow;background-color:crimson;padding:5px;line-height:160%"
     );
 }
-
 </script>
 HTML;
 
@@ -226,7 +226,7 @@ HTML;
     {
         $templatesPath = $this->engine->getTemplatesDirectory() . DIRECTORY_SEPARATOR;
 
-        if (is_null($this->templatesIterator)) {
+        if (null === $this->templatesIterator) {
             $this->templatesIterator = new RecursiveIteratorIterator
             (
                 new RecursiveDirectoryIterator($templatesPath, RecursiveDirectoryIterator::SKIP_DOTS),
@@ -235,10 +235,14 @@ HTML;
             );
         }
 
-        $this->__Load_disValidateOldCache();
+        $this->Load_disValidateOldCache();
     }
 
-    private function __Load_disValidateOldCache()
+    /**
+     * Check templates edit date, and drop
+     * old cache
+     */
+    private function Load_disValidateOldCache()
     {
         // load map
         $mapFile = new \stdClass();
@@ -258,14 +262,13 @@ HTML;
             /** @var $h \SplFileInfo */
             if ($h->isFile())
             {
-                $name = str_replace($templatesDir, '', $path);
-                $name = str_replace('.' . $templatesExt, '', $name);
+                $name = str_replace([$templatesDir, '.' . $templatesExt], '', $path);
                 $name = trim($name, '/');
 
                 $modified_cache = 0;
                 $modified_real = $h->getMTime();
 
-                if (in_array($name, array_keys((array)$mapFile))) {
+                if (array_key_exists($name, (array)$mapFile)) {
                     $modified_cache = $mapFile->$name;
                 }
 
@@ -275,7 +278,7 @@ HTML;
                         . DIRECTORY_SEPARATOR . $name
                         . '.' . static::_RENDERER_EXT;
 
-                    if ($modified_real != $modified_cache)
+                    if ($modified_real !== $modified_cache)
                     {
                         // remove old cache
                         if (is_file($pathToRendererCache)) {
@@ -288,17 +291,14 @@ HTML;
                         $this->templatesCache[$name] = file_get_contents($path);
 
                         // load renderer to mem cache
-                        if ($this->engine->isUseMemCache())
+                        if ($this->engine->isUseMemCache() && is_file($pathToRendererCache))
                         {
-                            if (is_file($pathToRendererCache)) 
+                            /** @noinspection PhpIncludeInspection */
+                            $renderer = include $pathToRendererCache;
+
+                            if ($renderer && is_callable($renderer))
                             {
-                                /** @noinspection PhpIncludeInspection */
-                                $renderer = include $pathToRendererCache;
-                                
-                                if ($renderer && is_callable($renderer))
-                                {
-                                    $this->rendersCache[$name] = $renderer;
-                                }
+                                $this->rendersCache[$name] = $renderer;
                             }
                         }
                     }
@@ -318,15 +318,14 @@ HTML;
      * Get renderer function
      *
      * @param string $name
-     * @param string $uniqueId
      * @return callable
+     * @throws \Exception
      */
-    private function getRenderer(string $name, string $uniqueId)
+    private function getRenderer(string $name): callable
     {
         $pathToFileCache = $this->engine->getCacheDirectory()
             . DIRECTORY_SEPARATOR . $name
             . '.' . static::_RENDERER_EXT;
-
 
         /**
          * Get renderer from memory T1 Cache
@@ -335,7 +334,7 @@ HTML;
          */
         $loadFromMemory = function() use ($name)
         {
-            if (in_array($name, array_keys($this->rendersCache)) && is_callable($this->rendersCache[$name])) {
+            if (array_key_exists($name, $this->rendersCache) && is_callable($this->rendersCache[$name])) {
                 return $this->rendersCache[$name];
             }
 
@@ -347,20 +346,17 @@ HTML;
          *
          * @return bool|callable
          */
-        $loadFromCache = function() use ($name, $pathToFileCache) {
+        $loadFromCache = function() use ($pathToFileCache) {
 
             $cached = false;
-
-            if ($this->engine->isUseCache())
+            if ($this->engine->isUseCache() && is_file($pathToFileCache))
             {
-                if (is_file($pathToFileCache))
+                /** @noinspection PhpIncludeInspection */
+                $cached = include $pathToFileCache;
+                if (!is_callable($cached))
                 {
-                    /** @noinspection PhpIncludeInspection */
-                    $cached = include $pathToFileCache;
-                    if (!is_callable($cached))
-                    {
-                        $cached = false;
-                    }
+
+                    $cached = false;
                 }
             }
 
@@ -370,8 +366,9 @@ HTML;
         /**
          * Compile new renderer and save to file cache (if allowed)
          * @return callable
+         * @throws \Exception
          */
-        $compile = function () use ($name, $pathToFileCache, $uniqueId) {
+        $compile = function () use ($name, $pathToFileCache) {
 
             $compileSettings = [
                 'flags' => LightnCandy::FLAG_HANDLEBARSJS,
@@ -386,11 +383,15 @@ HTML;
             // save renderer to file T2 cache
             if ($this->engine->isUseCache())
             {
+                $basePath = dirname($pathToFileCache);
+                if (!mkdir($basePath, 0777, true) && !is_dir($basePath)) {
+                    throw new \Exception('cant create cache directory \'%s\'');
+                }
+
                 file_put_contents($pathToFileCache, '<?php ' . $render . '?>');
             }
 
-            $renderer = eval($render);
-            return $renderer;
+            return eval($render);
         };
 
         // ---------------------------------------------------------
@@ -412,10 +413,10 @@ HTML;
 
         if (!is_callable($renderer))
         {
-            Engine::halt("
-                Invalid template file. Check your syntax at '%s',
+            Engine::halt('
+                Invalid template file. Check your syntax at \'%s\',
                 if you use partials, check that they added to partials list
-            ", [$name]);
+            ', [$name]);
         }
 
         // save to t1 cache
@@ -433,16 +434,53 @@ HTML;
      * @param string $raw
      * @param string $name
      * @return string
+     * @throws \Exception
      */
-    private function wrapTemplate(string $raw, string $name)
+    private function wrapTemplate(string $raw, string $name): string
     {
-        $html = new DOMDocument();
-        $html->encoding = 'utf-8';
-        @$html->loadHTML('<kxparent>'.$raw.'</kxparent>');
+        /**
+         * Convert raw template text
+         * to DOMDocument
+         *
+         * @param $raw
+         * @return DOMDocument
+         */
+        $pipeLine_To = function($raw) {
 
+            $html = new DOMDocument();
+            $html->encoding = 'UTF-8';
+
+            $encodedTemplate = mb_convert_encoding('<kxparent>'.$raw.'</kxparent>', 'HTML-ENTITIES', 'UTF-8');
+            $html->loadHTML($encodedTemplate);
+
+            return $html;
+        };
+
+        /**
+         * Convert back special chars
+         * from DOMDocument to special HTML template string
+         *
+         * @param $parsedHTMLString
+         * @return mixed
+         */
+        $pipeLine_Back = function ($parsedHTMLString) {
+
+            // decode all special chars
+            $parsedHTMLString = htmlspecialchars_decode($parsedHTMLString);
+
+            // replace variable tokens back
+            return preg_replace('/%7B%7B(\S+)%7D%7D/u', '{{$1}}', $parsedHTMLString);
+        };
+
+        // =======================================================================
+
+        $html = $pipeLine_To($raw);
+
+        // check tag
+        // -----------
         $el = $html->getElementsByTagName('kxparent')->item(0);
         if (!$el->hasChildNodes()) {
-            Engine::halt("Is your template '%s' empty? Add some html tag to it.", [$name]);
+            Engine::halt('Is your template \'%s\' empty? Add some html tag to it.', [$name]);
         }
 
         $nodes = [];
@@ -450,26 +488,29 @@ HTML;
             $nodes[] = $node;
         }
 
-        if (count($nodes) != 1)
+        if (1 !== count($nodes))
         {
-            Engine::halt("Template '%s' should contain only one parent (like in react). 
-            Wrap your elements by some html tag (div, span, etc..)", [$name]);
+            Engine::halt('Template \'%s\' should contain only one parent (like in react). 
+            Wrap your elements by some html tag (div, span, etc..)', [$name]);
         }
 
         /** @var $firstNode \DOMElement */
         $firstNode = reset($nodes);
         if (!($firstNode instanceof \DOMElement))
         {
-            Engine::halt("Template '%s' is invalid. Check your syntax. 
-            Maybe you template without parent wrapper?", [$name]);
+            Engine::halt('Template \'%s\' is invalid. Check your syntax. 
+            Maybe you template without parent wrapper?', [$name]);
         }
 
-        $firstNode->setAttribute('data-kx-draw-name', vsprintf("{{%s}}", [self::__HTML_ATTR_KX_TEMPLATE_ID]));
-        $firstNode->setAttribute('data-kx-draw-id', vsprintf("{{%s}}", [self::__HTML_ATTR_KX_UNIQUE_ID]));
+        // add system attributes
+        // -----------------------
+        $firstNode->setAttribute('data-kx-draw-name', vsprintf('{{%s}}', [self::__HTML_ATTR_KX_TEMPLATE_ID]));
+        $firstNode->setAttribute('data-kx-draw-id', vsprintf('{{%s}}', [self::__HTML_ATTR_KX_UNIQUE_ID]));
 
+        // output
+        // -----------------------
         $encodedHtmlString = (string)$firstNode->ownerDocument->saveHTML($firstNode);
-
-        return htmlspecialchars_decode($encodedHtmlString);
+        return $pipeLine_Back($encodedHtmlString);
     }
 
     /**
@@ -479,21 +520,22 @@ HTML;
      * @param string $uniqueId
      * @param array $data
      * @return string
+     * @throws \Exception
      */
-    private function realRender(string $templateName, string $uniqueId, array $data = [])
+    private function realRender(string $templateName, $uniqueId, array $data = []): string
     {
         // append system vars to template
         $data[self::__HTML_ATTR_KX_TEMPLATE_ID] = $templateName;
         $data[self::__HTML_ATTR_KX_UNIQUE_ID] = $uniqueId;
 
         // save to storage
-        $this->engine->getStorage()->save($templateName, $uniqueId, $data);
+        if ($uniqueId !== false) {
+            $this->engine->getStorage()->save($templateName, $uniqueId, $data);
+        }
 
         // render
-        $renderer = $this->getRenderer($templateName, $uniqueId);
-        $raw = $renderer($data);
-
-        return $raw;
+        $renderer = $this->getRenderer($templateName);
+        return $renderer($data);
     }
 
     // ==================================================================================
@@ -504,7 +546,7 @@ HTML;
      * @internal
      * @return Engine
      */
-    public function __getEngine(): Engine
+    public function getEngine(): Engine
     {
         return $this->engine;
     }

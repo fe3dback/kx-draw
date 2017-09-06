@@ -58,11 +58,10 @@ class @KXDrawRender
 
     # Render template
     renderer = Handlebars.compile template
-    html = renderer context
+    doc = $(renderer context)
 
-    $rootNode.html html
-
-    return true
+    $rootNode.html doc.html()
+    return doc
 
   update: (templateName, id, newData, assign = true) ->
 
