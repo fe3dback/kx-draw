@@ -384,7 +384,7 @@ HTML;
             if ($this->engine->isUseCache())
             {
                 $basePath = dirname($pathToFileCache);
-                if (!mkdir($basePath, 0777, true) && !is_dir($basePath)) {
+                if (!@mkdir($basePath, 0777, true) && !is_dir($basePath)) {
                     throw new \Exception('cant create cache directory \'%s\'');
                 }
 
@@ -438,6 +438,8 @@ HTML;
      */
     private function wrapTemplate(string $raw, string $name): string
     {
+        $nodeName = 'div';
+
         /**
          * Convert raw template text
          * to DOMDocument
@@ -445,12 +447,15 @@ HTML;
          * @param $raw
          * @return DOMDocument
          */
-        $pipeLine_To = function($raw) {
+        $pipeLine_To = function($raw) use ($nodeName) {
 
             $html = new DOMDocument();
             $html->encoding = 'UTF-8';
 
-            $encodedTemplate = mb_convert_encoding('<kxparent>'.$raw.'</kxparent>', 'HTML-ENTITIES', 'UTF-8');
+            $encodedTemplate = mb_convert_encoding(vsprintf('<%s>%s</%s>', [
+                $nodeName, $raw, $nodeName
+            ]), 'HTML-ENTITIES', 'UTF-8');
+
             $html->loadHTML($encodedTemplate);
 
             return $html;
@@ -478,7 +483,7 @@ HTML;
 
         // check tag
         // -----------
-        $el = $html->getElementsByTagName('kxparent')->item(0);
+        $el = $html->getElementsByTagName($nodeName)->item(0);
         if (!$el->hasChildNodes()) {
             Engine::halt('Is your template \'%s\' empty? Add some html tag to it.', [$name]);
         }

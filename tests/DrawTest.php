@@ -43,7 +43,7 @@ class DrawTest extends TestCase
 
     public function testEngine()
     {
-        $this->assertInstanceOf(Engine::class, $this->draw->__getEngine());
+        $this->assertInstanceOf(Engine::class, $this->draw->getEngine());
     }
 
     public function testRender()
@@ -105,7 +105,7 @@ class DrawTest extends TestCase
         $draw = $this->buildDraw(false, false, false);
         $draw->render($__template, $__id, [$__varKey => $__varValue]);
 
-        $storage = $draw->__getEngine()->getStorage();
+        $storage = $draw->getEngine()->getStorage();
 
         $templates = $storage->getUsedTemplates();
         $tempData = $storage->getTemplateData();
@@ -216,7 +216,7 @@ class DrawTest extends TestCase
             "HEsl_9241QQE",
             "text/javascript",
             "new KXDrawRender",
-            "templates:",
+            "\"templates\":",
             "hello",
         ];
 
@@ -235,7 +235,7 @@ class DrawTest extends TestCase
 
     private static function delTree($dir)
     {
-        $files = array_diff(scandir($dir), array('.','..'));
+        $files = array_diff(scandir($dir, false), array('.','..'));
         foreach ($files as $file) {
             (is_dir("$dir/$file")) ? self::delTree("$dir/$file") : unlink("$dir/$file");
         }
