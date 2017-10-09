@@ -149,7 +149,7 @@ fire(KXDraw()->getDrawTime());
     <?endif;?>
 
     <!-- engine dump -->
-    <?var_dump(KXDraw()->__getEngine());?>
+    <?var_dump(KXDraw()->getEngine());?>
 
 
     <!-- Send all data to JS Side (optional, for js render only) -->

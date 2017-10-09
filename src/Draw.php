@@ -257,13 +257,42 @@ HTML;
         $templatesExt = $this->engine->getExt();
         $templatesDir = $this->engine->getTemplatesDirectory();
 
+        // ===============================================
+
+        /**
+         * Get template name from template path
+         *
+         * @param $path
+         * @return mixed|string
+         */
+        $getNameFromFullPath = function ($path) use ($templatesDir, $templatesExt) {
+            $name = str_replace([$templatesDir, '.' . $templatesExt], '', $path);
+            $name = trim($name, '/');
+
+            return $name;
+        };
+
+        // ===============================================
+
+        /**
+         * In future we can implement tree cache validation
+         * like this:
+         *
+         * parent:
+         * - child1
+         * - child2
+         *
+         * if child1 changed, we drop only parent and siblings,
+         * but all other cache will stay.
+         */
+
+        $dropCache = false;
         foreach ($this->templatesIterator as $path => $h)
         {
             /** @var $h \SplFileInfo */
             if ($h->isFile())
             {
-                $name = str_replace([$templatesDir, '.' . $templatesExt], '', $path);
-                $name = trim($name, '/');
+                $name = $getNameFromFullPath($path);
 
                 $modified_cache = 0;
                 $modified_real = $h->getMTime();
@@ -274,11 +303,33 @@ HTML;
 
                 if ($this->engine->isUseCache())
                 {
+                    if ($modified_real !== (int)$modified_cache)
+                    {
+                        // remove old cache
+                        $dropCache = true;
+                    }
+                }
+
+                $mapFile->$name = $modified_real;
+            }
+        }
+
+        // ===============================================
+
+        foreach ($this->templatesIterator as $path => $h)
+        {
+            /** @var $h \SplFileInfo */
+            if ($h->isFile())
+            {
+                $name = $getNameFromFullPath($path);
+
+                if ($this->engine->isUseCache())
+                {
                     $pathToRendererCache = $this->engine->getCacheDirectory()
                         . DIRECTORY_SEPARATOR . $name
                         . '.' . static::_RENDERER_EXT;
 
-                    if ($modified_real !== $modified_cache)
+                    if ($dropCache)
                     {
                         // remove old cache
                         if (is_file($pathToRendererCache)) {
@@ -303,8 +354,6 @@ HTML;
                         }
                     }
                 }
-
-                $mapFile->$name = $modified_real;
             }
         }
 
